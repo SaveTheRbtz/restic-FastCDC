@@ -16,27 +16,27 @@ const (
 	chunkerBufSize = 2 * MinSize
 )
 
-var  MaskArray = [...]uint64{
+var MaskArray = [...]uint64{
 	0, 0, 0, 0, 0, 0,
-	0x00001803110, 			// 64B
-	0x000018035100, 		// 128B
-	0x00001800035300, 		// 256B
-	0x000019000353000,		// 512B
-	0x0000590003530000,		// 1KB
-	0x0000d90003530000,		// 2KB
-	0x0000d90103530000,		// 4KB
-	0x0000d90303530000,		// 8KB
-	0x0000d90313530000,		// 16KB
-	0x0000d90f03530000,		// 32KB
-	0x0000d90303537000,		// 64KB
-	0x0000d90703537000,		// 128KB
-	0x0000d90707537000,	 	// 256KB
-	0x0000d91707537000,		// 512KB
-	0x0000d91747537000,		// 1MB
-	0x0000d91767537000,		// 2MB
-	0x0000d93767537000, 	// 4MB
-	0x0000d93777537000, 	// 8MB
-	0x0000d93777577000,		// 16MB
+	0x00001803110,      // 64B
+	0x000018035100,     // 128B
+	0x00001800035300,   // 256B
+	0x000019000353000,  // 512B
+	0x0000590003530000, // 1KB
+	0x0000d90003530000, // 2KB
+	0x0000d90103530000, // 4KB
+	0x0000d90303530000, // 8KB
+	0x0000d90313530000, // 16KB
+	0x0000d90f03530000, // 32KB
+	0x0000d90303537000, // 64KB
+	0x0000d90703537000, // 128KB
+	0x0000d90707537000, // 256KB
+	0x0000d91707537000, // 512KB
+	0x0000d91747537000, // 1MB
+	0x0000d91767537000, // 2MB
+	0x0000d93767537000, // 4MB
+	0x0000d93777537000, // 8MB
+	0x0000d93777577000, // 16MB
 }
 
 // table is a pre-calculate random data array
@@ -134,8 +134,8 @@ type chunkerState struct {
 
 type chunkerConfig struct {
 	MinSize, MaxSize uint
-	splitmask         uint64
-    splitmask2        uint64
+	splitmask        uint64
+	splitmask2       uint64
 
 	rd     io.Reader
 	closed bool
@@ -155,33 +155,24 @@ func (c *Chunker) SetAverageBits(averageBits int) {
 }
 
 // New returns a new Chunker based on polynomial p that reads from rd.
-func New(rd io.Reader, pol Pol) *Chunker {
-	//return NewWithBoundaries(rd, pol, MinSize, MaxSize)
+func New(rd io.Reader) *Chunker {
+	var seed = uint64(rand.Uint32())<<32 + uint64(rand.Uint32())
 
-	var seed = uint64(rand.Uint32()) << 32 + uint64(rand.Uint32())
-
-	for i:= 0; i < len(table); i++ {
+	for i := 0; i < len(table); i++ {
 		table[i] = table[i] ^ seed
 	}
 
-	return NewWithBoundaries(rd, pol, MinSize, MaxSize)
-}
-
-// NewWithBoundaries returns a new Chunker based on the two pre-defined split masks
-//and reads from rd and custom min and max size boundaries.
-func NewWithBoundaries(rd io.Reader, pol Pol, min, max uint) *Chunker {
 	c := &Chunker{
 		chunkerState: chunkerState{
 			buf: make([]byte, chunkerBufSize),
 		},
 		chunkerConfig: chunkerConfig{
-			//pol:       pol,
-			rd:        rd,
-			MinSize:   min,
-			MaxSize:   max,
+			rd:      rd,
+			MinSize: MinSize,
+			MaxSize: MaxSize,
 			// average chunk size is 1 MiB, so set the splitMask is 512KiB and 2 MiB
-            splitmask: MaskArray[19],
-            splitmask2: MaskArray[21],
+			splitmask:  MaskArray[19],
+			splitmask2: MaskArray[21],
 		},
 	}
 
@@ -191,29 +182,8 @@ func NewWithBoundaries(rd io.Reader, pol Pol, min, max uint) *Chunker {
 }
 
 // Reset reinitializes the chunker with a new reader and polynomial.
-func (c *Chunker) Reset(rd io.Reader, pol Pol) {
-	c.ResetWithBoundaries(rd, pol, MinSize, MaxSize)
-}
-
-// ResetWithBoundaries reinitializes the chunker with a new reader,
-// and custom min and max size boundaries.
-func (c *Chunker) ResetWithBoundaries(rd io.Reader, pol Pol, min, max uint) {
-	*c = Chunker{
-		chunkerState: chunkerState{
-			buf: c.buf,
-		},
-		chunkerConfig: chunkerConfig{
-			//pol:       pol,
-			rd:        rd,
-			MinSize:   min,
-			MaxSize:   max,
-			//splitmask: (1 << 20) - 1,
-            splitmask: MaskArray[19],
-			splitmask2: MaskArray[21],
-		},
-	}
-
-	c.reset()
+func (c *Chunker) Reset(rd io.Reader) {
+	// TODO: reset the polynomial
 }
 
 func (c *Chunker) reset() {
@@ -231,10 +201,6 @@ func (c *Chunker) reset() {
 // subsequent calls yield an io.EOF error.
 func (c *Chunker) Next(data []byte) (Chunk, error) {
 	data = data[:0]
-
-	// go guarantees the expected behavior for bit shifts even for shift counts
-	// larger than the value width. Bounding the value of polShift allows the compiler
-	// to optimize the code for 'digest >> polShift'
 
 	minSize := c.MinSize
 	maxSize := c.MaxSize
@@ -299,11 +265,11 @@ func (c *Chunker) Next(data []byte) (Chunk, error) {
 
 		add := c.count
 
-        n := c.bmax - c.bpos
-		mid := minSize + 4 * 1024
+		n := c.bmax - c.bpos
+		mid := minSize + 4*1024
 		if n > maxSize {
 			n = maxSize
-		}else if n < mid{
+		} else if n < mid {
 			mid = n
 		}
 
@@ -315,43 +281,43 @@ func (c *Chunker) Next(data []byte) (Chunk, error) {
 
 		idx := c.bpos
 		var fp uint64 = 0
-		for ; idx < mid; idx++  {
+		for ; idx < mid; idx++ {
 			fp = (fp << 1) + table[buf[idx]]
-			add ++
-			if fp & c.splitmask == 0 {
+			add++
+			if fp&c.splitmask == 0 {
 				i := add - c.count - 1
-				data = append(data, c.buf[c.bpos:c.bpos + i + 1]...)
+				data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
 				c.count = add
 				c.pos += uint(i) + 1
 				c.bpos += uint(i) + 1
 				c.buf = buf
-				chunk := Chunk {
-					Start: c.start,
+				chunk := Chunk{
+					Start:  c.start,
 					Length: c.count,
-					Cut: fp,
-					Data: data,
+					Cut:    fp,
+					Data:   data,
 				}
 				c.reset()
 				return chunk, nil
 			}
 		}
 
-		for ; idx < n; idx ++ {
+		for ; idx < n; idx++ {
 			fp = (fp << 1) + table[buf[idx]]
-			add ++
-			if fp & c.splitmask2 == 0 {
+			add++
+			if fp&c.splitmask2 == 0 {
 				i := add - c.count - 1
-				data = append(data, c.buf[c.bpos: c.bpos + i + 1]...)
+				data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
 				c.count = add
 				c.pos += uint(i) + 1
 				c.bpos += uint(i) + 1
 				c.buf = buf
 
-				chunk := Chunk {
-					Start: c.start,
+				chunk := Chunk{
+					Start:  c.start,
 					Length: c.count,
-					Cut: fp,
-					Data: data,
+					Cut:    fp,
+					Data:   data,
 				}
 				c.reset()
 				return chunk, nil
@@ -360,22 +326,21 @@ func (c *Chunker) Next(data []byte) (Chunk, error) {
 
 		if idx >= maxSize {
 			i := add - c.count - 1
-			data = append(data, c.buf[c.bpos: c.bpos+i+1]...)
+			data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
 			c.count = add
 			c.pos += uint(i) + 1
 			c.bpos += uint(i) + 1
 			c.buf = buf
 
-			chunk := Chunk {
-				Start: c.start,
+			chunk := Chunk{
+				Start:  c.start,
 				Length: c.count,
-				Cut: fp,
-				Data: data,
+				Cut:    fp,
+				Data:   data,
 			}
 			c.reset()
 			return chunk, nil
 		}
-
 
 		steps := c.bmax - c.bpos
 		if steps > 0 {

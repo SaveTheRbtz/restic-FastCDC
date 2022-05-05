@@ -2,7 +2,7 @@ package chunker
 
 import (
 	"bytes"
-	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"io"
 	"math/rand"
@@ -25,82 +25,75 @@ type chunk struct {
 	Digest []byte
 }
 
-// polynomial used for all the tests below
-const testPol = Pol(0x3DA3358B4DC173)
-
+// Generated with:
+//  fmt.Printf("{%d, 0x%x, parseDigest(\"%s\")},\n", chunk.Length, chunk.Cut, hex.EncodeToString(hashData(chunk.Data)))
+//
 // created for 32MB of random data out of math/rand's Uint32() seeded by
 // constant 23
 //
 // chunking configuration:
 // window size 64, avg chunksize 1<<20, min chunksize 1<<19, max chunksize 1<<23
-// polynom 0x3DA3358B4DC173
 var chunks1 = []chunk{
-	chunk{2163460, 0x000b98d4cdf00000, parseDigest("4b94cb2cf293855ea43bf766731c74969b91aa6bf3c078719aabdd19860d590d")},
-	chunk{643703, 0x000d4e8364d00000, parseDigest("5727a63c0964f365ab8ed2ccf604912f2ea7be29759a2b53ede4d6841e397407")},
-	chunk{1528956, 0x0015a25c2ef00000, parseDigest("a73759636a1e7a2758767791c69e81b69fb49236c6929e5d1b654e06e37674ba")},
-	chunk{1955808, 0x00102a8242e00000, parseDigest("c955fb059409b25f07e5ae09defbbc2aadf117c97a3724e06ad4abd2787e6824")},
-	chunk{2222372, 0x00045da878000000, parseDigest("6ba5e9f7e1b310722be3627716cf469be941f7f3e39a4c3bcefea492ec31ee56")},
-	chunk{2538687, 0x00198a8179900000, parseDigest("8687937412f654b5cfe4a82b08f28393a0c040f77c6f95e26742c2fc4254bfde")},
-	chunk{609606, 0x001d4e8d17100000, parseDigest("5da820742ff5feb3369112938d3095785487456f65a8efc4b96dac4be7ebb259")},
-	chunk{1205738, 0x000a7204dd600000, parseDigest("cc70d8fad5472beb031b1aca356bcab86c7368f40faa24fe5f8922c6c268c299")},
-	chunk{959742, 0x00183e71e1400000, parseDigest("4065bdd778f95676c92b38ac265d361f81bff17d76e5d9452cf985a2ea5a4e39")},
-	chunk{4036109, 0x001fec043c700000, parseDigest("b9cf166e75200eb4993fc9b6e22300a6790c75e6b0fc8f3f29b68a752d42f275")},
-	chunk{1525894, 0x000b1574b1500000, parseDigest("2f238180e4ca1f7520a05f3d6059233926341090f9236ce677690c1823eccab3")},
-	chunk{1352720, 0x00018965f2e00000, parseDigest("afd12f13286a3901430de816e62b85cc62468c059295ce5888b76b3af9028d84")},
-	chunk{811884, 0x00155628aa100000, parseDigest("42d0cdb1ee7c48e552705d18e061abb70ae7957027db8ae8db37ec756472a70a")},
-	chunk{1282314, 0x001909a0a1400000, parseDigest("819721c2457426eb4f4c7565050c44c32076a56fa9b4515a1c7796441730eb58")},
-	chunk{1318021, 0x001cceb980000000, parseDigest("842eb53543db55bacac5e25cb91e43cc2e310fe5f9acc1aee86bdf5e91389374")},
-	chunk{948640, 0x0011f7a470a00000, parseDigest("b8e36bf7019bb96ac3fb7867659d2167d9d3b3148c09fe0de45850b8fe577185")},
-	chunk{645464, 0x00030ce2d9400000, parseDigest("5584bd27982191c3329f01ed846bfd266e96548dfa87018f745c33cfc240211d")},
-	chunk{533758, 0x0004435c53c00000, parseDigest("4da778a25b72a9a0d53529eccfe2e5865a789116cb1800f470d8df685a8ab05d")},
-	chunk{1128303, 0x0000c48517800000, parseDigest("08c6b0b38095b348d80300f0be4c5184d2744a17147c2cba5cc4315abf4c048f")},
-	chunk{800374, 0x000968473f900000, parseDigest("820284d2c8fd243429674c996d8eb8d3450cbc32421f43113e980f516282c7bf")},
-	chunk{2453512, 0x001e197c92600000, parseDigest("5fa870ed107c67704258e5e50abe67509fb73562caf77caa843b5f243425d853")},
-	chunk{2651975, 0x000ae6c868000000, parseDigest("181347d2bbec32bef77ad5e9001e6af80f6abcf3576549384d334ee00c1988d8")},
-	chunk{237392, 0x0000000000000001, parseDigest("fcd567f5d866357a8e299fd5b2359bb2c8157c30395229c4e9b0a353944a7978")},
+	{1533447, 0x6408246850248eec, parseDigest("eb6d234c3c0184bd1df2d1b6f38ff4afbd91ae9752d1ab1bf33d797c9c86b6c7")},
+	{654826, 0x46120420502c817e, parseDigest("5e6d690efaafc42fb8ad324115fe1db8e2cababe324b7001b6048256563d00a2")},
+	{1125034, 0x98e520689004070a, parseDigest("36ab1f5d4930991d02f6991d2fd7217c78866d2c8bd2f83e62445d032219903d")},
+	{1341849, 0xa8e42200080c8da9, parseDigest("efa6a808db7df1d2a6b06a774a180243a72ad68e4e068e322166da8bcdd3beda")},
+	{783684, 0xb168002808088d5a, parseDigest("e0c07c415b4301a4c4aee6f904cdef37cfeb5499361a6d24e0c33ff4f7650c89")},
+	{897808, 0x6ea5002020248d20, parseDigest("d13b3e64862b074d46b882fc5b6caa2274e6cbf14129e1a995015634fad755e7")},
+	{2287888, 0x7bce046090880358, parseDigest("a649a9026fe22c3a819d536918aee1d0fd487df79d2112422504732171aa86d2")},
+	{1110971, 0x82f4066030040beb, parseDigest("77c47f77fb970456fd94327b2efe683f3a7782828e4fccbeb928d7612001f99b")},
+	{1190302, 0xd072248890a48823, parseDigest("d3112ca30c7d2bb015be7af1379782b79b22b62a14b89c38ab5451b74f7e562a")},
+	{2918017, 0x5ebf2660b0280382, parseDigest("22a16eff10e65daf1be3f044190f32b6f33db35feb7c8eda5d2533a1f8456dc9")},
+	{962788, 0x1eb2048e0a88a8d, parseDigest("87f29f74974bb5dd62a253b73b3784d3655539b294cefb2995547b569dd143f2")},
+	{1009244, 0x8f6202c8c0a4892d, parseDigest("5c379069bf8ef03b9516f9886711d450ef274eded70c4e4bd01d710dc2d62c7c")},
+	{1228883, 0xfa5b00a8400c03e8, parseDigest("47966940fb38508a65740a313da5de873ff7b73a86ece4a9b8063f8c03f19e87")},
+	{1243579, 0x4eff24c8d0280060, parseDigest("838b0297d6d9bbe6faad71f6a58611d814730f2194251c336ad6a0af330fae83")},
+	{634382, 0xff2c004080000057, parseDigest("aac76e336b76c6103fd06fa117817a763827b43c280e40e0fa54b6c45a4c9df3")},
+	{1445786, 0x89932220508c84dd, parseDigest("91aa5f670732c703cbdc8b3277cd9aa86619c6bb52cf90caa1a1c6db51ba3a84")},
+	{1102384, 0xf67a228038a4075a, parseDigest("9612a9a2a441bb14c9f24bbd08661b60a8ed9b04c22d365417566430ac0d3c8b")},
+	{5924013, 0x7e70008868a08f2e, parseDigest("d2a8e28b50175f5bd6755aea989cba7e8682e4313b0f990b13aa84b99d025f68")},
+	{1340617, 0xa14200a880048da1, parseDigest("4adfd5c1661dbba28dcf56bf41ab455f484c7fb7b7138df1e462ca541dd128ea")},
+	{666322, 0xa3a2260308c853f, parseDigest("f0974d2ea2fa95cc66d172697868a666441574ff872fac9ce60c833e0c9c1c98")},
+	{1142810, 0xe82f24e0d0808866, parseDigest("846049f7d7ccd3b922d4560558586bfe045c4b1b0cd955722090d98e322413b9")},
+	{1419886, 0xd1f900c8a0a4039f, parseDigest("0283087bebbe5304fee21cc2337d4708d363b378dca59e778dd05477fbaa2a49")},
+	{622436, 0x21e70280b0800a87, parseDigest("509772e134fdb4201f21bd6b512a35d26c2b36a8ad2219eb7f29a85b52ae6eb4")},
+	{967476, 0x0, parseDigest("5ccfdcd35ec62b4c7e79f31e967bc2554835f59373b38e0b5542a4a2c9d6f888")},
 }
 
 // test if nullbytes are correctly split, even if length is a multiple of MinSize.
 var chunks2 = []chunk{
-	chunk{MinSize, 0, parseDigest("07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541")},
-	chunk{MinSize, 0, parseDigest("07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541")},
-	chunk{MinSize, 0, parseDigest("07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541")},
-	chunk{MinSize, 0, parseDigest("07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541")},
+	{8388608, 0x0, parseDigest("2daeb1f36095b44b318410b3f4e8b5d989dcc7bb023d1426c492dab0a3053e74")},
 }
 
 // the same as chunks1, but avg chunksize is 1<<19
 var chunks3 = []chunk{
-	chunk{1491586, 0x00023e586ea80000, parseDigest("4c008237df602048039287427171cef568a6cb965d1b5ca28dc80504a24bb061")},
-	chunk{671874, 0x000b98d4cdf00000, parseDigest("fa8a42321b90c3d4ce9dd850562b2fd0c0fe4bdd26cf01a24f22046a224225d3")},
-	chunk{643703, 0x000d4e8364d00000, parseDigest("5727a63c0964f365ab8ed2ccf604912f2ea7be29759a2b53ede4d6841e397407")},
-	chunk{1284146, 0x0012b527e4780000, parseDigest("16d04cafecbeae9eaedd49da14c7ad7cdc2b1cc8569e5c16c32c9fb045aa899a")},
-	chunk{823366, 0x000d1d6752180000, parseDigest("48662c118514817825ad4761e8e2e5f28f9bd8281b07e95dcafc6d02e0aa45c3")},
-	chunk{810134, 0x0016071b6e180000, parseDigest("f629581aa05562f97f2c359890734c8574c5575da32f9289c5ba70bfd05f3f46")},
-	chunk{567118, 0x00102a8242e00000, parseDigest("d4f0797c56c60d01bac33bfd49957a4816b6c067fc155b026de8a214cab4d70a")},
-	chunk{821315, 0x001b3e42c8180000, parseDigest("8ebd0fd5db0293bd19140da936eb8b1bbd3cd6ffbec487385b956790014751ca")},
-	chunk{1401057, 0x00045da878000000, parseDigest("001360af59adf4871ef138cfa2bb49007e86edaf5ac2d6f0b3d3014510991848")},
-	chunk{2311122, 0x0005cbd885380000, parseDigest("8276d489b566086d9da95dc5c5fe6fc7d72646dd3308ced6b5b6ddb8595f0aa1")},
-	chunk{608723, 0x001cfcd86f280000, parseDigest("518db33ba6a79d4f3720946f3785c05b9611082586d47ea58390fc2f6de9449e")},
-	chunk{980456, 0x0013edb7a7f80000, parseDigest("0121b1690738395e15fecba1410cd0bf13fde02225160cad148829f77e7b6c99")},
-	chunk{1140278, 0x0001f9f017e80000, parseDigest("28ca7c74804b5075d4f5eeb11f0845d99f62e8ea3a42b9a05c7bd5f2fca619dd")},
-	chunk{2015542, 0x00097bf5d8180000, parseDigest("6fe8291f427d48650a5f0f944305d3a2dbc649bd401d2655fc0bdd42e890ca5a")},
-	chunk{904752, 0x000e1863eff80000, parseDigest("62af1f1eb3f588d18aff28473303cc4731fc3cafcc52ce818fee3c4c2820854d")},
-	chunk{713072, 0x001f3bb1b9b80000, parseDigest("4bda9dc2e3031d004d87a5cc93fe5207c4b0843186481b8f31597dc6ffa1496c")},
-	chunk{675937, 0x001fec043c700000, parseDigest("5299c8c5acec1b90bb020cd75718aab5e12abb9bf66291465fd10e6a823a8b4a")},
-	chunk{1525894, 0x000b1574b1500000, parseDigest("2f238180e4ca1f7520a05f3d6059233926341090f9236ce677690c1823eccab3")},
-	chunk{1352720, 0x00018965f2e00000, parseDigest("afd12f13286a3901430de816e62b85cc62468c059295ce5888b76b3af9028d84")},
-	chunk{811884, 0x00155628aa100000, parseDigest("42d0cdb1ee7c48e552705d18e061abb70ae7957027db8ae8db37ec756472a70a")},
-	chunk{1282314, 0x001909a0a1400000, parseDigest("819721c2457426eb4f4c7565050c44c32076a56fa9b4515a1c7796441730eb58")},
-	chunk{1093738, 0x0017f5d048880000, parseDigest("5dddfa7a241b68f65d267744bdb082ee865f3c2f0d8b946ea0ee47868a01bbff")},
-	chunk{962003, 0x000b921f7ef80000, parseDigest("0cb5c9ebba196b441c715c8d805f6e7143a81cd5b0d2c65c6aacf59ca9124af9")},
-	chunk{856384, 0x00030ce2d9400000, parseDigest("7734b206d46f3f387e8661e81edf5b1a91ea681867beb5831c18aaa86632d7fb")},
-	chunk{533758, 0x0004435c53c00000, parseDigest("4da778a25b72a9a0d53529eccfe2e5865a789116cb1800f470d8df685a8ab05d")},
-	chunk{1128303, 0x0000c48517800000, parseDigest("08c6b0b38095b348d80300f0be4c5184d2744a17147c2cba5cc4315abf4c048f")},
-	chunk{800374, 0x000968473f900000, parseDigest("820284d2c8fd243429674c996d8eb8d3450cbc32421f43113e980f516282c7bf")},
-	chunk{2453512, 0x001e197c92600000, parseDigest("5fa870ed107c67704258e5e50abe67509fb73562caf77caa843b5f243425d853")},
-	chunk{665901, 0x00118c842cb80000, parseDigest("deceec26163842fdef6560311c69bf8a9871a56e16d719e2c4b7e4d668ceb61f")},
-	chunk{1986074, 0x000ae6c868000000, parseDigest("64cd64bf3c3bc389eb20df8310f0427d1c36ab2eaaf09e346bfa7f0453fc1a18")},
-	chunk{237392, 0x0000000000000001, parseDigest("fcd567f5d866357a8e299fd5b2359bb2c8157c30395229c4e9b0a353944a7978")},
+	{1263430, 0x280940ad13280000, parseDigest("93fba4233a0028eb60e98950107d2dec949d8ddd59ca12670999720e64dfc063")},
+	{1178839, 0x17a6e45727300000, parseDigest("64a3f850028d4e70b95697a3a7dcbc67b7e7369147e8bbcdd5ebc21c845cb815")},
+	{811643, 0x103e05a705e80000, parseDigest("4228c606d657918d9388dfae32706d952b8858000e5dff846878b8233bdbe797")},
+	{1365787, 0xf86586b40a200000, parseDigest("5b27675816ba56538ff7d7a2a4a81706392e7a38b3b2bf24f075921172f4f618")},
+	{749466, 0x16686e80bb680000, parseDigest("ae2929ab767e7865e81437f536abf52e43837af1d91dfec477fbc65f0dcb0876")},
+	{2131655, 0x41af946ddb500000, parseDigest("101db5112cbfbdf802b45f01deb11801c214c7d9725ca063151d73879d2b5002")},
+	{1310162, 0xf862ff0807500000, parseDigest("f4589bbb2d08d7f0bffdc57bc88913918c01b750b2b1d976e0bab9aeb088a6ea")},
+	{946703, 0x29e2c581d2c80000, parseDigest("265df03365520a48a874168dbb7d128439564dc7d4e80e72294154df25caf01f")},
+	{755920, 0xe86c2188cd080000, parseDigest("72cf7d8ce0b92d477f57d0ee825e8870f17714b49d4cf01c3b9be3686f76676b")},
+	{1234986, 0x12d47d9b8ae00000, parseDigest("893de5ddcba940b483bbb40c3e658fdbf88dcd697d692038cafbe19b3693fd0c")},
+	{1001836, 0xd80a9a6eb6600000, parseDigest("c2b521e123c035bedf94af6f49ac78630754b43806b1a518e2df81757ac5e22e")},
+	{1208245, 0x9d9038a962680000, parseDigest("250ab9e2f717a79fc5684d79fd6efd811b96f5d796d35ae10dc1d89eed334930")},
+	{1660090, 0xf1162448900004e7, parseDigest("25fbfb8c0fd5c79f871ab77fd6f9df6c7c55f5536b957480cd2e3dd4cf1f7914")},
+	{1236204, 0x1d08ec4c53580000, parseDigest("0098745012da36fe50ebd5d323aafe56600c1e6306b91a872f3c184a77f3eb62")},
+	{1005976, 0x8f66292c20b00000, parseDigest("c24a30eac18ad106d2cdc6f819a0e77ff79067dd112d9c79d521d11f2a80ae47")},
+	{1651409, 0xd916246810848a33, parseDigest("0784c11b2bd535f912823cf4940b5222c50eb5b4242e68a8f78dbcefc35cabb1")},
+	{750787, 0x4a1fabfa8ef80000, parseDigest("7f07502445c3bbd9ac2fe18dcd955f7a024338c4eaf3fa02c7a00a03895855a5")},
+	{945985, 0x863d7abbecb80000, parseDigest("45895861147cf8f0389dc26fe1ff7596adfba63a85b0d0214c1a819ab47ce2a0")},
+	{1086697, 0xaae9b1ae91100000, parseDigest("9b19e59ec4987ee7ea16f13edb61010c7d16e5efea9b9ec90464f6059f881a53")},
+	{1130496, 0x7125267293d00000, parseDigest("ed5c6a5911effd617899b62fa7ad94fb43e8c6b8c18eb7fc6693c220e452f45e")},
+	{1952402, 0x898bacee30680000, parseDigest("287f862b03f0e768c4e0aa82ae338957656221d5974c5f51676336e388d5bbbf")},
+	{2358615, 0xab4e015b1180000, parseDigest("fdedf3c47e8d41050c9331947b676a9d46a9d64da19e06288c63f5ad711a9fb2")},
+	{736962, 0xc046c98dd7b80000, parseDigest("35857dd6edeaf59cff866337f1923aa00e0bfd096768023b1d0a92eb6833de30")},
+	{2172902, 0xd3b37d53f0200000, parseDigest("eebb5bb5fd57de7c9178289fc062876ec47bd854ff96db831be0dbb882d1e018")},
+	{861626, 0xa125b5e0f9800000, parseDigest("34af925b5e32e7ef733f5e68a800cf3c52d387b43ad6fb1e25af223abe12ee25")},
+	{1105988, 0xff7433e7ddd00000, parseDigest("2717a9393158a027b74bfb1991c7b0e6b181699068548e01ecbec1638c452bfd")},
+	{939621, 0x0, parseDigest("d28d4a082720b8af62d26076515560bb5474cac5330ca6601859b351bde25e65")},
 }
 
 func testWithData(t *testing.T, chnker *Chunker, testChunks []chunk, checkDigest bool) []Chunk {
@@ -155,21 +148,16 @@ func testWithData(t *testing.T, chnker *Chunker, testChunks []chunk, checkDigest
 
 func getRandom(seed int64, count int) []byte {
 	buf := make([]byte, count)
-
 	rnd := rand.New(rand.NewSource(seed))
-	for i := 0; i < count; i += 4 {
-		r := rnd.Uint32()
-		buf[i] = byte(r)
-		buf[i+1] = byte(r >> 8)
-		buf[i+2] = byte(r >> 16)
-		buf[i+3] = byte(r >> 24)
+	_, err := rnd.Read(buf)
+	if err != nil {
+		panic(err)
 	}
-
 	return buf
 }
 
 func hashData(d []byte) []byte {
-	h := sha256.New()
+	h := sha512.New512_256()
 	h.Write(d)
 	return h.Sum(nil)
 }
@@ -177,19 +165,19 @@ func hashData(d []byte) []byte {
 func TestChunker(t *testing.T) {
 	// setup data source
 	buf := getRandom(23, 32*1024*1024)
-	ch := New(bytes.NewReader(buf), testPol)
+	ch := New(bytes.NewReader(buf))
 	testWithData(t, ch, chunks1, true)
 
 	// setup nullbyte data source
-	buf = bytes.Repeat([]byte{0}, len(chunks2)*MinSize)
-	ch = New(bytes.NewReader(buf), testPol)
-
+	buf = bytes.Repeat([]byte{0}, len(chunks2)*MaxSize)
+	ch = New(bytes.NewReader(buf))
 	testWithData(t, ch, chunks2, true)
+
 }
 
 func TestChunkerWithCustomAverageBits(t *testing.T) {
 	buf := getRandom(23, 32*1024*1024)
-	ch := New(bytes.NewReader(buf), testPol)
+	ch := New(bytes.NewReader(buf))
 
 	// sligthly decrease averageBits to get more chunks
 	ch.SetAverageBits(19)
@@ -198,10 +186,11 @@ func TestChunkerWithCustomAverageBits(t *testing.T) {
 
 func TestChunkerReset(t *testing.T) {
 	buf := getRandom(23, 32*1024*1024)
-	ch := New(bytes.NewReader(buf), testPol)
+	ch := New(bytes.NewReader(buf))
+
 	testWithData(t, ch, chunks1, true)
 
-	ch.Reset(bytes.NewReader(buf), testPol)
+	ch.Reset(bytes.NewReader(buf))
 	testWithData(t, ch, chunks1, true)
 }
 
@@ -209,16 +198,8 @@ func TestChunkerWithRandomPolynomial(t *testing.T) {
 	// setup data source
 	buf := getRandom(23, 32*1024*1024)
 
-	// generate a new random polynomial
 	start := time.Now()
-	p, err := RandomPolynomial()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("generating random polynomial took %v", time.Since(start))
-
-	start = time.Now()
-	ch := New(bytes.NewReader(buf), p)
+	ch := New(bytes.NewReader(buf))
 	t.Logf("creating chunker took %v", time.Since(start))
 
 	// make sure that first chunk is different
@@ -244,7 +225,7 @@ func TestChunkerWithoutHash(t *testing.T) {
 	// setup data source
 	buf := getRandom(23, 32*1024*1024)
 
-	ch := New(bytes.NewReader(buf), testPol)
+	ch := New(bytes.NewReader(buf))
 	chunks := testWithData(t, ch, chunks1, false)
 
 	// test reader
@@ -262,7 +243,7 @@ func TestChunkerWithoutHash(t *testing.T) {
 
 	// setup nullbyte data source
 	buf = bytes.Repeat([]byte{0}, len(chunks2)*MinSize)
-	ch = New(bytes.NewReader(buf), testPol)
+	ch = New(bytes.NewReader(buf))
 
 	testWithData(t, ch, chunks2, false)
 }
@@ -270,7 +251,7 @@ func TestChunkerWithoutHash(t *testing.T) {
 func benchmarkChunker(b *testing.B, checkDigest bool) {
 	size := 32 * 1024 * 1024
 	rd := bytes.NewReader(getRandom(23, size))
-	ch := New(rd, testPol)
+	ch := New(rd)
 	buf := make([]byte, MaxSize)
 
 	b.ResetTimer()
@@ -285,48 +266,23 @@ func benchmarkChunker(b *testing.B, checkDigest bool) {
 			b.Fatalf("Seek() return error %v", err)
 		}
 
-		ch.Reset(rd, testPol)
+		ch.Reset(rd)
 
-		cur := 0
-		for {
-			chunk, err := ch.Next(buf)
-
-			if err == io.EOF {
-				break
-			}
-
+		for ; ; chunks++ {
+			_, err := ch.Next(buf)
 			if err != nil {
-				b.Fatalf("Unexpected error occurred: %v", err)
-			}
-
-			if chunk.Length != chunks1[cur].Length {
-				b.Errorf("wrong chunk length, want %d, got %d",
-					chunks1[cur].Length, chunk.Length)
-			}
-
-			if chunk.Cut != chunks1[cur].CutFP {
-				b.Errorf("wrong cut fingerprint, want 0x%x, got 0x%x",
-					chunks1[cur].CutFP, chunk.Cut)
-			}
-
-			if checkDigest {
-				h := hashData(chunk.Data)
-				if !bytes.Equal(h, chunks1[cur].Digest) {
-					b.Errorf("wrong digest, want %x, got %x",
-						chunks1[cur].Digest, h)
+				if err == io.EOF {
+					break
+				} else {
+					b.Fatalf("Unexpected error occurred: %v", err)
+					b.FailNow()
 				}
 			}
-
-			chunks++
-			cur++
 		}
+
 	}
 
 	b.Logf("%d chunks, average chunk size: %d bytes", chunks, size/chunks)
-}
-
-func BenchmarkChunkerWithSHA256(b *testing.B) {
-	benchmarkChunker(b, true)
 }
 
 func BenchmarkChunker(b *testing.B) {
@@ -334,14 +290,9 @@ func BenchmarkChunker(b *testing.B) {
 }
 
 func BenchmarkNewChunker(b *testing.B) {
-	p, err := RandomPolynomial()
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		New(bytes.NewBuffer(nil), p)
+		New(bytes.NewBuffer(nil))
 	}
 }
