@@ -249,7 +249,7 @@ func TestChunkerWithoutHash(t *testing.T) {
 }
 
 func benchmarkChunker(b *testing.B, checkDigest bool) {
-	size := 32 * 1024 * 1024
+	size := 64 * 1024 * 1024
 	rd := bytes.NewReader(getRandom(23, size))
 	ch := New(rd)
 	buf := make([]byte, MaxSize)

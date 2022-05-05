@@ -16,7 +16,7 @@ const (
 	chunkerBufSize = 2 * MinSize
 )
 
-var MaskArray = [...]uint64{
+var maskArray = [...]uint64{
 	0, 0, 0, 0, 0, 0,
 	0x00001803110,      // 64B
 	0x000018035100,     // 128B
@@ -171,8 +171,8 @@ func New(rd io.Reader) *Chunker {
 			MinSize: MinSize,
 			MaxSize: MaxSize,
 			// average chunk size is 1 MiB, so set the splitMask is 512KiB and 2 MiB
-			splitmask:  MaskArray[19],
-			splitmask2: MaskArray[21],
+			splitmask:  maskArray[19],
+			splitmask2: maskArray[21],
 		},
 	}
 
@@ -266,81 +266,42 @@ func (c *Chunker) Next(data []byte) (Chunk, error) {
 		add := c.count
 
 		n := c.bmax - c.bpos
-		mid := minSize + 4*1024
+		mid := (minSize + maxSize) / 2
 		if n > maxSize {
 			n = maxSize
 		} else if n < mid {
 			mid = n
 		}
 
-		// calculate fp when loop idx from bpos to n
-		// when fp matches the pre-defined splitmask
-		// it generate a cut point
-		// when idx reaches n and still not matches mask, it stores the data.
-		// if idx reaches maxSize, it generate a cut point directly to limit the chunk size.
-
+		digest := c.digest
 		idx := c.bpos
-		var fp uint64 = 0
-		for ; idx < mid; idx++ {
-			fp = (fp << 1) + table[buf[idx]]
-			add++
-			if fp&c.splitmask == 0 {
-				i := add - c.count - 1
-				data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
-				c.count = add
-				c.pos += uint(i) + 1
-				c.bpos += uint(i) + 1
-				c.buf = buf
-				chunk := Chunk{
-					Start:  c.start,
-					Length: c.count,
-					Cut:    fp,
-					Data:   data,
+		for _, p := range []struct {
+			splitmask uint64
+			point     uint
+		}{{c.splitmask, mid}, {c.splitmask2, n}} {
+			for ; idx < p.point; idx++ {
+				digest = (digest << 1) + table[buf[idx]]
+				add++
+				if digest&p.splitmask == 0 {
+					i := add - c.count - 1
+					data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
+					c.count = add
+					c.pos += uint(i) + 1
+					c.bpos += uint(i) + 1
+					c.buf = buf
+					c.digest = digest
+					chunk := Chunk{
+						Start:  c.start,
+						Length: c.count,
+						Cut:    c.digest,
+						Data:   data,
+					}
+					c.reset()
+					return chunk, nil
 				}
-				c.reset()
-				return chunk, nil
 			}
 		}
-
-		for ; idx < n; idx++ {
-			fp = (fp << 1) + table[buf[idx]]
-			add++
-			if fp&c.splitmask2 == 0 {
-				i := add - c.count - 1
-				data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
-				c.count = add
-				c.pos += uint(i) + 1
-				c.bpos += uint(i) + 1
-				c.buf = buf
-
-				chunk := Chunk{
-					Start:  c.start,
-					Length: c.count,
-					Cut:    fp,
-					Data:   data,
-				}
-				c.reset()
-				return chunk, nil
-			}
-		}
-
-		if idx >= maxSize {
-			i := add - c.count - 1
-			data = append(data, c.buf[c.bpos:c.bpos+i+1]...)
-			c.count = add
-			c.pos += uint(i) + 1
-			c.bpos += uint(i) + 1
-			c.buf = buf
-
-			chunk := Chunk{
-				Start:  c.start,
-				Length: c.count,
-				Cut:    fp,
-				Data:   data,
-			}
-			c.reset()
-			return chunk, nil
-		}
+		c.digest = digest
 
 		steps := c.bmax - c.bpos
 		if steps > 0 {
